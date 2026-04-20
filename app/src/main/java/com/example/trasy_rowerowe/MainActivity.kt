@@ -6,8 +6,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,7 +18,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -42,9 +50,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.trasy_rowerowe.ui.theme.Trasy_roweroweTheme
@@ -53,7 +65,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-data class Trasa(val nazwa: String, val dystans: String, val szczegoly: String)
+data class KategoriaSzlaku(val nazwa: String, val obrazekResId: Int, val krótkiOpis: String, val pełnyOpis: String)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -73,21 +85,35 @@ fun AplikacjaTras() {
     val konfiguracja = LocalConfiguration.current
     val czyPoziomo = konfiguracja.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-    val listaTras = listOf(
-        Trasa("Trasa nad jezioro", "15 km", "Długa trasa wzdłuż jeziora jaroszewskiego."),
-        Trasa("Wycieczka w góry", "25 km", "Trudne podejście w Górach Sowich."),
-        Trasa("Wycieczka w góry 2", "18 km", "Lżejszy wariant w Górach Sowich."),
-        Trasa("Szybki spacer", "5 km", "Spacer po parku miejskim.")
+    // Zaktualizowana lista - teraz są to kategorie szlaków z obrazkami i opisami
+    val listaKategorii = listOf(
+        KategoriaSzlaku(
+            "Trasy Górskie",
+            R.drawable.ic_mountains,
+            "Wymagające podjazdy",
+            "Ta kategoria jest dla zaawansowanych kolarzy. Oferuje trudne podejścia w Górach Sowich i okolicach. Trasy są strome, techniczne i idealne dla rowerów MTB. Przygotuj się na niesamowite widoki, ale też na duży wysiłek fizyczny."
+        ),
+        KategoriaSzlaku(
+            "Trasy nad Wodą",
+            R.drawable.ic_lake,
+            "Relaks i płaski teren",
+            "Długie, spokojne trasy wzdłuż jezior i rzek. Teren jest zazwyczaj płaski, co czyni te trasy doskonałymi na weekendowy wypoczynek z rodziną. Idealne do jazdy rekreacyjnej, z miejscami na piknik."
+        ),
+        KategoriaSzlaku(
+            "Trasy Miejskie",
+            R.drawable.ic_city,
+            "Asfalt i ścieżki",
+            "Szybkie przemieszczanie się po mieście. Trasy prowadzą przez parki i wydzielone ścieżki rowerowe. Doskonałe dla dojeżdżających do pracy lub do treningu szybkościowego na równej nawierzchni."
+        )
     )
 
-    var wybranaNazwaTras by rememberSaveable { mutableStateOf<String?>(null) }
-    val wybranaTrasa = listaTras.find { it.nazwa == wybranaNazwaTras }
+    var wybranaNazwaKategorii by rememberSaveable { mutableStateOf<String?>(null) }
+    val wybranaKategoria = listaKategorii.find { it.nazwa == wybranaNazwaKategorii }
 
-    // --- WYNIESIONY STAN STOPERA ---
-    // Stan jest zdefiniowany TUTAJ, więc nie zginie przy zmianie gałęzi if/else
-    var czasWSekundach by rememberSaveable(wybranaNazwaTras) { mutableStateOf(0) }
-    var czyDziala by rememberSaveable(wybranaNazwaTras) { mutableStateOf(false) }
-    var historiaCzasow by rememberSaveable(wybranaNazwaTras) { mutableStateOf(listOf<String>()) }
+    // Stan stopera
+    var czasWSekundach by rememberSaveable(wybranaNazwaKategorii) { mutableStateOf(0) }
+    var czyDziala by rememberSaveable(wybranaNazwaKategorii) { mutableStateOf(false) }
+    var historiaCzasow by rememberSaveable(wybranaNazwaKategorii) { mutableStateOf(listOf<String>()) }
 
     LaunchedEffect(czyDziala) {
         while (czyDziala) {
@@ -96,29 +122,41 @@ fun AplikacjaTras() {
         }
     }
 
-    if (!czyPoziomo && wybranaTrasa != null) {
-        BackHandler { wybranaNazwaTras = null }
+    if (!czyPoziomo && wybranaKategoria != null) {
+        BackHandler { wybranaNazwaKategorii = null }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                title = { Text(text = if (wybranaTrasa != null && !czyPoziomo) "Szczegóły" else "Lista tras", fontWeight = FontWeight.Bold) }
+                title = { Text(text = if (wybranaKategoria != null && !czyPoziomo) "Szczegóły Szlaku" else "Wybór Szlaku", fontWeight = FontWeight.Bold) }
             )
         }
     ) { padding ->
         if (czyPoziomo) {
             Row(modifier = Modifier.padding(padding).fillMaxSize()) {
-                Column(modifier = Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())) {
-                    listaTras.forEach { trasa ->
-                        KartaTrasy(trasa = trasa, onClick = { wybranaNazwaTras = trasa.nazwa })
+
+                Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(2),
+                        modifier = Modifier.fillMaxWidth().padding(8.dp)
+                    ) {
+
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            KartaGlowna()
+                        }
+                        // Siatka kart kategorii
+                        items(listaKategorii) { kategoria ->
+                            CategoryGridCard(kategoria = kategoria, onClick = { wybranaNazwaKategorii = kategoria.nazwa })
+                        }
                     }
                 }
+
                 Column(modifier = Modifier.weight(1f).fillMaxHeight().padding(16.dp).verticalScroll(rememberScrollState())) {
-                    if (wybranaTrasa != null) {
+                    if (wybranaKategoria != null) {
                         WidokSzczegolow(
-                            trasa = wybranaTrasa,
+                            kategoria = wybranaKategoria,
                             czas = czasWSekundach,
                             czyDziala = czyDziala,
                             historia = historiaCzasow,
@@ -128,21 +166,32 @@ fun AplikacjaTras() {
                             onSave = { czas -> historiaCzasow = historiaCzasow + czas }
                         )
                     } else {
-                        Text(text = "Wybierz trasę z listy.", color = Color.Gray, fontSize = 18.sp)
+                        Text(text = "Wybierz kategorię z siatki po lewej stronie.", color = Color.Gray, fontSize = 18.sp)
                     }
                 }
             }
         } else {
-            if (wybranaTrasa == null) {
-                Column(modifier = Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState())) {
-                    listaTras.forEach { trasa ->
-                        KartaTrasy(trasa = trasa, onClick = { wybranaNazwaTras = trasa.nazwa })
+
+            if (wybranaKategoria == null) {
+
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier.padding(padding).fillMaxSize().padding(8.dp)
+                ) {
+
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        KartaGlowna()
+                    }
+
+                    items(listaKategorii) { kategoria ->
+                        CategoryGridCard(kategoria = kategoria, onClick = { wybranaNazwaKategorii = kategoria.nazwa })
                     }
                 }
             } else {
+
                 Column(modifier = Modifier.padding(padding).padding(16.dp).fillMaxSize().verticalScroll(rememberScrollState())) {
                     WidokSzczegolow(
-                        trasa = wybranaTrasa,
+                        kategoria = wybranaKategoria,
                         czas = czasWSekundach,
                         czyDziala = czyDziala,
                         historia = historiaCzasow,
@@ -152,7 +201,7 @@ fun AplikacjaTras() {
                         onSave = { czas -> historiaCzasow = historiaCzasow + czas }
                     )
                     Spacer(modifier = Modifier.height(32.dp))
-                    Button(onClick = { wybranaNazwaTras = null }) { Text("Wróć do listy") }
+                    Button(onClick = { wybranaNazwaKategorii = null }) { Text("Wróć do wyboru") }
                 }
             }
         }
@@ -160,8 +209,56 @@ fun AplikacjaTras() {
 }
 
 @Composable
+fun KartaGlowna() {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "Witaj w Trasach Rowerowych!",
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Twoja osobista aplikacja do śledzenia czasu przejazdów. Wybierz kategorię szlaków poniżej, aby zmierzyć swój czas, zapisać wyniki i śledzić postępy.",
+                fontSize = 14.sp,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+
+@Composable
+fun CategoryGridCard(kategoria: KategoriaSzlaku, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(4.dp).clickable { onClick() },
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Column(modifier = Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+
+            Image(
+                painter = painterResource(id = kategoria.obrazekResId),
+                contentDescription = kategoria.nazwa,
+                modifier = Modifier.size(80.dp).clip(RoundedCornerShape(8.dp)),
+                contentScale = ContentScale.Crop // Przycinanie obrazka
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(text = kategoria.nazwa, fontWeight = FontWeight.Bold, fontSize = 16.sp, textAlign = TextAlign.Center)
+            Text(text = kategoria.krótkiOpis, fontSize = 12.sp, color = Color.Gray, textAlign = TextAlign.Center)
+        }
+    }
+}
+
+@Composable
 fun WidokSzczegolow(
-    trasa: Trasa,
+    kategoria: KategoriaSzlaku,
     czas: Int,
     czyDziala: Boolean,
     historia: List<String>,
@@ -170,15 +267,22 @@ fun WidokSzczegolow(
     onReset: () -> Unit,
     onSave: (String) -> Unit
 ) {
-    Text(text = trasa.nazwa, fontWeight = FontWeight.Bold, fontSize = 24.sp)
-    Text(text = "Dystans: ${trasa.dystans}", color = MaterialTheme.colorScheme.primary)
-    Text(text = trasa.szczegoly, fontSize = 18.sp)
+
+    Image(
+        painter = painterResource(id = kategoria.obrazekResId),
+        contentDescription = kategoria.nazwa,
+        modifier = Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(8.dp)),
+        contentScale = ContentScale.Crop
+    )
+    Spacer(modifier = Modifier.height(16.dp))
+
+    Text(text = kategoria.nazwa, fontWeight = FontWeight.Bold, fontSize = 24.sp)
+    Text(text = kategoria.krótkiOpis, color = MaterialTheme.colorScheme.primary, fontSize = 18.sp)
+    Text(text = kategoria.pełnyOpis, fontSize = 16.sp)
     Spacer(modifier = Modifier.height(24.dp))
 
     KomponentStopera(
-        nazwaTrasy = trasa.nazwa,
         czasWSekundach = czas,
-        czyDziala = czyDziala,
         historiaCzasow = historia,
         onStart = onStart,
         onPause = onPause,
@@ -189,9 +293,7 @@ fun WidokSzczegolow(
 
 @Composable
 fun KomponentStopera(
-    nazwaTrasy: String,
     czasWSekundach: Int,
-    czyDziala: Boolean,
     historiaCzasow: List<String>,
     onStart: () -> Unit,
     onPause: () -> Unit,
@@ -228,15 +330,3 @@ fun KomponentStopera(
     }
 }
 
-@Composable
-fun KartaTrasy(trasa: Trasa, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(8.dp).clickable { onClick() },
-        elevation = CardDefaults.cardElevation(4.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = trasa.nazwa, fontWeight = FontWeight.Bold)
-            Text(text = trasa.dystans, fontSize = 14.sp)
-        }
-    }
-}
